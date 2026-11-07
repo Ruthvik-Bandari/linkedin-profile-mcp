@@ -1,0 +1,59 @@
+{
+  "name": "linkedin-profile-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that reviews and improves LinkedIn profile text the way technical recruiters search: headline, About, Experience, keywords vs job postings. No scraping, no login, no API keys.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest run",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/index.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "linkedin",
+    "linkedin-profile",
+    "resume",
+    "career",
+    "job-search",
+    "recruiting",
+    "claude",
+    "ats",
+    "keywords"
+  ],
+  "author": "Ruthvik Nath Bandari (https://github.com/Ruthvik-Bandari)",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "bin": {
+    "linkedin-profile-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "mcpName": "io.github.Ruthvik-Bandari/linkedin-profile-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ruthvik-Bandari/linkedin-profile-mcp.git"
+  },
+  "homepage": "https://github.com/Ruthvik-Bandari/linkedin-profile-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Ruthvik-Bandari/linkedin-profile-mcp/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

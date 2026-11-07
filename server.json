@@ -1,0 +1,10 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Ruthvik-Bandari/linkedin-profile-mcp",
+  "description": "Review and improve LinkedIn profile text the way recruiters search. No scraping or login.",
+  "repository": { "url": "https://github.com/Ruthvik-Bandari/linkedin-profile-mcp", "source": "github" },
+  "version": "0.1.0",
+  "packages": [
+    { "registryType": "npm", "identifier": "linkedin-profile-mcp", "version": "0.1.0", "transport": { "type": "stdio" } }
+  ]
+}
