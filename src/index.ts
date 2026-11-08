@@ -5,7 +5,7 @@ import { z } from "zod";
 import { FULL_GUIDE, SECTIONS } from "./guide.js";
 import { LIMITS, keywordCoverage, lintField, reviewExperience, reviewHeadline, type Field } from "./rules.js";
 
-const server = new McpServer({ name: "linkedin-profile-optimizer", version: "0.1.0" });
+const server = new McpServer({ name: "linkedin-profile-optimizer", version: "0.1.1" });
 
 const json = (value: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }] });
 const FIELDS = Object.keys(LIMITS) as [Field, ...Field[]];
@@ -15,8 +15,8 @@ server.registerTool(
   "get_guidelines",
   {
     title: "Get LinkedIn guidelines",
-    description: "Return the section-by-section LinkedIn profile guidelines (recruiter-search based). Omit 'section' for the full guide.",
-    inputSchema: { section: z.enum(SECTION_NAMES).optional().describe("One section, e.g. headline, about, experience, open_to_work") },
+    description: "Return LinkedIn profile writing guidelines based on how technical recruiters search. Use this before drafting or rewriting a section; it is reference text and does not check anything (use lint_field or the review_* tools to check text). Returns plain text: rules, character limits and examples for one section, or the whole guide when 'section' is omitted. Read-only, no network.",
+    inputSchema: { section: z.enum(SECTION_NAMES).optional().describe("Which section to return, e.g. 'headline', 'about', 'experience', 'open_to_work', 'skills', 'checklist'. Omit to get every section in one text.") },
     annotations: { readOnlyHint: true },
   },
   async ({ section }) => ({ content: [{ type: "text", text: section ? SECTIONS[section]! : FULL_GUIDE }] }),
@@ -26,8 +26,11 @@ server.registerTool(
   "lint_field",
   {
     title: "Lint a profile field",
-    description: "Check one LinkedIn field against its character limit and for AI-sounding text (em dashes, stock phrases, 'it's not X, it's Y'), list markers and emoji. Shows what is visible before truncation.",
-    inputSchema: { field: z.enum(FIELDS), text: z.string().describe("The exact text of the field") },
+    description: "Check the text of one LinkedIn field (or a post, comment or connection note) before the user pastes it. Use for any single field; for a headline or an Experience entry prefer review_headline or review_experience, which run these checks plus structure checks. Checks the character limit, em and en dashes, stock phrases that read as AI-written, the 'it's not X, it's Y' pattern, '-' list markers and emoji, and shows the text visible before 'see more'. Returns JSON: { field, characters, limit, issues: [{ severity: 'error' | 'warn' | 'tip', message }] }; errors must be fixed, warnings should be. Read-only, no network.",
+    inputSchema: {
+      field: z.enum(FIELDS).describe("Which field the text is for; this sets the limit. headline 220, about 2600, experience_title 100, experience_description 2000, featured_title ~45, featured_description ~200, post 3000, comment 1250, connection_note 200."),
+      text: z.string().describe("The exact text of the field, as it would be pasted into LinkedIn"),
+    },
     annotations: { readOnlyHint: true },
   },
   async ({ field, text }) => json(lintField(field, text)),
@@ -37,11 +40,11 @@ server.registerTool(
   "review_headline",
   {
     title: "Review a headline",
-    description: "Score a headline: role in the first 60 characters, length used, vague labels, segments, 'open to' line, and target keywords.",
+    description: "Review a LinkedIn headline against recruiter-search rules. Use this for headlines instead of lint_field; use review_profile to check a whole profile at once. Runs pass/fail checks: not a vague label ('Student at X', 'Aspiring'), target role in the first 60 characters, at least 150 of 220 characters used, 3 or more segments separated by '|', an 'Open to ... roles' line, and target keywords present; plus all lint_field checks. Returns JSON: { characters, limit, issues: [...], checks: [{ name, pass, detail }] }. Rewrite and call again until every check passes. Read-only, no network.",
     inputSchema: {
-      headline: z.string(),
-      target_role: z.string().optional().describe("e.g. 'AI Engineer'"),
-      keywords: z.array(z.string()).optional().describe("Must-have terms from job postings"),
+      headline: z.string().describe("The full headline text, up to 220 characters"),
+      target_role: z.string().optional().describe("The job title the person wants, e.g. 'AI Engineer'. Enables the 'role in the first 60 characters' check."),
+      keywords: z.array(z.string()).optional().describe("Must-have terms from target job postings, e.g. ['Python', 'RAG']. Passes when at least 2 appear. Get them from keyword_coverage."),
     },
     annotations: { readOnlyHint: true },
   },
@@ -52,8 +55,11 @@ server.registerTool(
   "review_experience",
   {
     title: "Review an Experience entry",
-    description: "Check one Experience description: length, opening line, bullet count, numbers in bullets, action verbs, duty phrasing, keywords and AI-sounding text.",
-    inputSchema: { description: z.string(), keywords: z.array(z.string()).optional() },
+    description: "Review the description of one LinkedIn Experience entry (one role). Use it once per role; use review_profile to check every role together with the rest of the profile. Pass/fail checks: at least 300 characters, an opening line that explains the role on its own, 3 to 7 bullets, most bullets with a number, most bullets starting with an action verb, and target keywords; it also warns on duty phrasing ('responsible for', 'worked on') and runs all lint_field checks. Returns JSON: { characters, limit, issues: [...], bullets, bulletsWithNumbers, bulletsStartingWithVerb, checks: [{ name, pass, detail }] }. Read-only, no network.",
+    inputSchema: {
+      description: z.string().describe("The full description text of one role, up to 2,000 characters. Bullets may start with '•', '-' or '*'."),
+      keywords: z.array(z.string()).optional().describe("Target terms from job postings. Passes when at least a third of them appear. Get them from keyword_coverage."),
+    },
     annotations: { readOnlyHint: true },
   },
   async ({ description, keywords }) => json(reviewExperience(description, keywords ?? [])),
@@ -63,11 +69,11 @@ server.registerTool(
   "keyword_coverage",
   {
     title: "Keyword coverage vs job postings",
-    description: "Find terms that recur across the pasted job descriptions and report which ones the profile text contains. Only add a missing term if it truly describes the person's work.",
+    description: "Compare a profile with target job postings. Use it first when the user has job descriptions: it finds single words and two-word phrases that recur across the postings (in at least 2 postings when 3 or more are given) and reports which ones appear in the profile. Feed the results to review_headline and review_experience as 'keywords'. Returns JSON: { covered: [{ term, inPostings, inProfile }], missing: [...], coverage: '<n> of <m> ...' }, ranked by how many postings use each term. Only suggest adding a missing term if it truly describes the person's work. Read-only, no network.",
     inputSchema: {
-      profile_text: z.string().describe("Headline, About, Experience and Skills pasted together"),
-      job_descriptions: z.array(z.string()).min(1).describe("Full text of 1 to 10 target job postings"),
-      top: z.number().int().min(5).max(80).optional(),
+      profile_text: z.string().describe("Headline, About, Experience and Skills pasted together as plain text"),
+      job_descriptions: z.array(z.string()).min(1).describe("Full text of 1 to 10 target job postings, one string per posting"),
+      top: z.number().int().min(5).max(80).optional().describe("How many recurring terms to report, 5 to 80. Default 30."),
     },
     annotations: { readOnlyHint: true },
   },
@@ -78,17 +84,21 @@ server.registerTool(
   "review_profile",
   {
     title: "Review a whole profile",
-    description: "Run every check on a pasted profile (for example the text of LinkedIn's 'Save to PDF'). Returns per-section results and a checklist. Never logs in to or scrapes LinkedIn.",
+    description: "Review a whole LinkedIn profile in one call. Use it for a first full review; then use review_headline, review_experience or lint_field on single sections while rewriting. Split the user's pasted profile (for example the text of LinkedIn's 'Save to PDF') into the fields below. Runs review_headline, lint_field on About, review_experience on each role, keyword_coverage when job descriptions are given (its top 12 terms become the keywords for the other checks), and a checklist. Returns JSON: { headline, about, experiences: [{ title, company, titleLint, review }], keywordCoverage, checklist: [{ item, pass }] }. Read-only; never logs in to or scrapes LinkedIn.",
     inputSchema: {
-      target_role: z.string().optional(),
-      headline: z.string(),
-      about: z.string().optional(),
-      location: z.string().optional(),
-      experiences: z.array(z.object({ title: z.string(), company: z.string(), description: z.string() })).optional(),
-      skills: z.array(z.string()).optional(),
-      featured_count: z.number().int().optional(),
-      connections: z.number().int().optional(),
-      job_descriptions: z.array(z.string()).optional(),
+      target_role: z.string().optional().describe("The job title the person wants, e.g. 'Data Scientist'"),
+      headline: z.string().describe("The headline text"),
+      about: z.string().optional().describe("The About section text"),
+      location: z.string().optional().describe("The location shown on the profile, e.g. 'Boston, MA'. A country alone fails the checklist."),
+      experiences: z.array(z.object({
+        title: z.string().describe("Job title"),
+        company: z.string().describe("Company name"),
+        description: z.string().describe("The role's description text"),
+      })).optional().describe("Each Experience entry, most recent first"),
+      skills: z.array(z.string()).optional().describe("Every listed skill, one per item"),
+      featured_count: z.number().int().optional().describe("How many items are in the Featured section"),
+      connections: z.number().int().optional().describe("Number of connections (use 500 for '500+')"),
+      job_descriptions: z.array(z.string()).optional().describe("Full text of 1 to 10 target job postings, one string per posting"),
     },
     annotations: { readOnlyHint: true },
   },

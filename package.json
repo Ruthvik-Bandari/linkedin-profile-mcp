@@ -1,6 +1,6 @@
 {
   "name": "linkedin-profile-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that reviews and improves LinkedIn profile text the way technical recruiters search: headline, About, Experience, keywords vs job postings. No scraping, no login, no API keys.",
   "main": "dist/index.js",
   "scripts": {
