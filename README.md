@@ -3,6 +3,7 @@
 [![npm](https://img.shields.io/npm/v/linkedin-profile-mcp)](https://www.npmjs.com/package/linkedin-profile-mcp)
 [![CI](https://github.com/Ruthvik-Bandari/linkedin-profile-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/Ruthvik-Bandari/linkedin-profile-mcp/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Glama score](https://glama.ai/mcp/servers/Ruthvik-Bandari/linkedin-profile-mcp/badges/score.svg)](https://glama.ai/mcp/servers/Ruthvik-Bandari/linkedin-profile-mcp)
 
 An MCP server that helps people rewrite their LinkedIn profile the way technical recruiters search for candidates. Paste your profile text into Claude (or any MCP client); the server checks every field against LinkedIn's limits and recruiter-search guidelines, and the assistant rewrites sections from your own facts.
 
